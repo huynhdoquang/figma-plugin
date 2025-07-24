@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Game Localization Importer</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-size: 12px;
+      line-height: 1.4;
+      color: #333;
+      background: #fff;
+      padding: 16px;
+    }
+    
+    .header {
+      margin-bottom: 24px;
+    }
+    
+    .title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #1a1a1a;
+      margin-bottom: 8px;
+    }
+    
+    .subtitle {
+      color: #666;
+      font-size: 11px;
+    }
+    
+    .section {
+      margin-bottom: 20px;
+      padding: 16px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      border: 1px solid #e1e5e9;
+    }
+    
+    .section-title {
+      font-weight: 600;
+      margin-bottom: 12px;
+      color: #1a1a1a;
+    }
+    
+    .upload-area {
+      border: 2px dashed #ccc;
+      border-radius: 8px;
+      padding: 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: #fff;
+    }
+    
+    .upload-area:hover {
+      border-color: #0d99ff;
+      background: #f0f8ff;
+    }
+    
+    .upload-area.dragover {
+      border-color: #0d99ff;
+      background: #e6f3ff;
+    }
+    
+    .file-input {
+      display: none;
+    }
+    
+    .upload-text {
+      color: #666;
+      margin-bottom: 8px;
+    }
+    
+    .upload-button {
+      display: inline-block;
+      padding: 8px 16px;
+      background: #0d99ff;
+      color: white;
+      border-radius: 6px;
+      text-decoration: none;
+      font-size: 11px;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+    }
+    
+    .options {
+      display: grid;
+      gap: 12px;
+    }
+    
+    .option-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    
+    .option-label {
+      font-weight: 500;
+      color: #1a1a1a;
+    }
+    
+    .radio-group {
+      display: flex;
+      gap: 16px;
+    }
+    
+    .radio-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    
+    .checkbox-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .data-preview {
+      max-height: 200px;
+      overflow-y: auto;
+      background: #fff;
+      border: 1px solid #e1e5e9;
+      border-radius: 6px;
+      padding: 12px;
+      font-family: 'Monaco', 'Menlo', monospace;
+      font-size: 10px;
+      color: #666;
+    }
+    
+    .buttons {
+      display: flex;
+      gap: 8px;
+      margin-top: 20px;
+    }
+    
+    .button {
+      flex: 1;
+      padding: 12px;
+      border: none;
+      border-radius: 6px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .button-primary {
+      background: #0d99ff;
+      color: white;
+    }
+    
+    .button-primary:hover {
+      background: #0b87e5;
+    }
+    
+    .button-secondary {
+      background: #f1f3f4;
+      color: #333;
+    }
+    
+    .button-secondary:hover {
+      background: #e8eaed;
+    }
+    
+    .button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    
+    .status {
+      padding: 8px 12px;
+      border-radius: 6px;
+      margin-top: 12px;
+      font-size: 11px;
+    }
+    
+    .status-success {
+      background: #e8f5e8;
+      color: #2d5a2d;
+      border: 1px solid #c3e6c3;
+    }
+    
+    .status-error {
+      background: #ffeaea;
+      color: #d32f2f;
+      border: 1px solid #ffcdd2;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="title">🎮 Game Localization Importer</div>
+    <div class="subtitle">Import JSON localization data into Figma</div>
+  </div>
+  
+  <div class="section">
+    <div class="section-title">📁 Upload JSON Data</div>
+    <div class="upload-area" id="uploadArea">
+      <div class="upload-text">Drop JSON file here or click to browse</div>
+      <button class="upload-button" onclick="document.getElementById('fileInput').click()">
+        Choose File
+      </button>
+      <input type="file" id="fileInput" class="file-input" accept="application/json,.json" />
+    </div>
+    <div id="fileInfo" style="margin-top: 8px; font-size: 11px; color: #666;"></div>
+  </div>
+  
+  <div class="section" id="optionsSection" style="display: none;">
+    <div class="section-title">⚙️ Import Options</div>
+    <div class="options">
+      <div class="option-group">
+        <div class="option-label">Language to Import:</div>
+        <div class="radio-group">
+          <div class="radio-item">
+            <input type="radio" id="langVi" name="language" value="vi" checked>
+            <label for="langVi">Vietnamese</label>
+          </div>
+          <div class="radio-item">
+            <input type="radio" id="langEn" name="language" value="en">
+            <label for="langEn">English</label>
+          </div>
+          <div class="radio-item">
+            <input type="radio" id="langOriginal" name="language" value="original">
+            <label for="langOriginal">Original (Chinese)</label>
+          </div>
+        </div>
+      </div>
+      
+      <div class="option-group">
+        <div class="checkbox-item">
+          <input type="checkbox" id="createBoundingBoxes" checked>
+          <label for="createBoundingBoxes">Create bounding box guides</label>
+        </div>
+        <div class="checkbox-item">
+          <input type="checkbox" id="groupByImage" checked>
+          <label for="groupByImage">Group elements by image</label>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="section" id="previewSection" style="display: none;">
+    <div class="section-title">👀 Data Preview</div>
+    <div class="data-preview" id="dataPreview"></div>
+  </div>
+  
+  <div class="buttons">
+    <button class="button button-primary" id="importButton" disabled>
+      🚀 Import to Figma
+    </button>
+    <button class="button button-secondary" id="createComponentsButton" disabled>
+      🧩 Create Components
+    </button>
+  </div>
+  
+  <div id="status"></div>
+  
+  <script>
+    let jsonData = null;
+    
+    // File upload handling
+    const uploadArea = document.getElementById('uploadArea');
+    const fileInput = document.getElementById('fileInput');
+    const fileInfo = document.getElementById('fileInfo');
+    const optionsSection = document.getElementById('optionsSection');
+    const previewSection = document.getElementById('previewSection');
+    const dataPreview = document.getElementById('dataPreview');
+    const importButton = document.getElementById('importButton');
+    const createComponentsButton = document.getElementById('createComponentsButton');
+    const status = document.getElementById('status');
+    
+    // Drag and drop
+    uploadArea.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      uploadArea.classList.add('dragover');
+    });
+    
+    uploadArea.addEventListener('dragleave', () => {
+      uploadArea.classList.remove('dragover');
+    });
+    
+    uploadArea.addEventListener('drop', (e) => {
+      e.preventDefault();
+      uploadArea.classList.remove('dragover');
+      const files = e.dataTransfer.files;
+      if (files.length > 0) {
+        handleFile(files[0]);
+      }
+    });
+    
+    uploadArea.addEventListener('click', () => {
+      fileInput.click();
+    });
+    
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files.length > 0) {
+        handleFile(e.target.files[0]);
+      }
+    });
+    
+    function handleFile(file) {
+      if (!file.name.endsWith('.json')) {
+        showStatus('Please select a JSON file', 'error');
+        return;
+      }
+      
+      fileInfo.textContent = `📄 ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+      
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          jsonData = JSON.parse(e.target.result);
+          showPreview(jsonData);
+          optionsSection.style.display = 'block';
+          previewSection.style.display = 'block';
+          importButton.disabled = false;
+          createComponentsButton.disabled = false;
+          showStatus('JSON loaded successfully!', 'success');
+        } catch (error) {
+          showStatus('Invalid JSON file: ' + error.message, 'error');
+        }
+      };
+      reader.readAsText(file);
+    }
+    
+    function showPreview(data) {
+      const preview = {
+        totalImages: Object.keys(data.images).length,
+        totalElements: Object.values(data.images).reduce((sum, img) => sum + img.textElements.length, 0),
+        firstImage: Object.keys(data.images)[0],
+        sampleElement: Object.values(data.images)[0]?.textElements[0]
+      };
+      
+      dataPreview.textContent = JSON.stringify(preview, null, 2);
+    }
+    
+    function showStatus(message, type) {
+      status.className = `status status-${type}`;
+      status.textContent = message;
+      status.style.display = 'block';
+    }
+    
+    // Button handlers
+    importButton.addEventListener('click', () => {
+      if (!jsonData) return;
+      
+      const selectedLanguage = document.querySelector('input[name="language"]:checked').value;
+      const createBoundingBoxes = document.getElementById('createBoundingBoxes').checked;
+      const groupByImage = document.getElementById('groupByImage').checked;
+      
+      parent.postMessage({
+        pluginMessage: {
+          type: 'import-localization',
+          data: {
+            images: jsonData.images,
+            selectedLanguage,
+            createBoundingBoxes,
+            groupByImage
+          }
+        }
+      }, '*');
+      
+      showStatus('Importing to Figma...', 'success');
+    });
+    
+    createComponentsButton.addEventListener('click', () => {
+      if (!jsonData) return;
+      
+      parent.postMessage({
+        pluginMessage: {
+          type: 'create-components',
+          data: {
+            images: jsonData.images,
+            componentTypes: ['button', 'label', 'title']
+          }
+        }
+      }, '*');
+      
+      showStatus('Creating components...', 'success');
+    });
+    
+    // Listen for messages from plugin
+    window.addEventListener('message', (event) => {
+      const msg = event.data.pluginMessage;
+      if (msg.type === 'import-success' || msg.type === 'components-success') {
+        showStatus(msg.message, 'success');
+      } else if (msg.type === 'error') {
+        showStatus(msg.message, 'error');
+      }
+    });
+  </script>
+</body>
+</html>

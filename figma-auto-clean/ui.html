@@ -1,0 +1,1064 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Simple Image Cleaner v3.2</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Inter', sans-serif; font-size: 12px; color: #333; background: #fff; padding: 16px; }
+    .header { text-align: center; margin-bottom: 24px; }
+    .title { font-size: 18px; font-weight: 600; color: #1a1a1a; margin-bottom: 8px; }
+    .subtitle { color: #666; font-size: 11px; }
+    .section { margin-bottom: 20px; padding: 16px; background: #f8f9fa; border-radius: 8px; border: 1px solid #e1e5e9; }
+    .section-title { font-weight: 600; margin-bottom: 12px; color: #1a1a1a; display: flex; align-items: center; gap: 8px; }
+    .button { width: 100%; padding: 12px; border: none; border-radius: 6px; font-weight: 500; cursor: pointer; transition: all 0.2s; font-size: 12px; margin-bottom: 8px; }
+    .button-primary { background: #0d99ff; color: white; }
+    .button-primary:hover { background: #0b87e5; }
+    .button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .info-box { padding: 12px; background: white; border: 1px solid #e1e5e9; border-radius: 6px; margin-bottom: 12px; }
+    .info-row { display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 11px; }
+    .info-label { color: #666; }
+    .info-value { font-weight: 500; color: #1a1a1a; }
+    .cleaning-areas { max-height: 120px; overflow-y: auto; }
+    .area-item { display: flex; justify-content: space-between; align-items: center; padding: 8px; background: white; border: 1px solid #e1e5e9; border-radius: 4px; margin-bottom: 4px; font-size: 10px; }
+    .area-name { font-weight: 500; color: #1a1a1a; }
+    .area-coords { color: #666; }
+    .controls { display: grid; gap: 12px; }
+    .control-group { display: flex; flex-direction: column; gap: 4px; }
+    .control-label { font-weight: 500; color: #1a1a1a; font-size: 11px; }
+    .control-input, .control-select { padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 11px; }
+    .status { padding: 8px 12px; border-radius: 6px; margin-top: 12px; font-size: 11px; }
+    .status-success { background: #e8f5e8; color: #2d5a2d; border: 1px solid #c3e6c3; }
+    .status-error { background: #ffeaea; color: #d32f2f; border: 1px solid #ffcdd2; }
+    .status-info { background: #e3f2fd; color: #1565c0; border: 1px solid #bbdefb; }
+    .progress-bar { width: 100%; height: 4px; background: #e1e5e9; border-radius: 2px; overflow: hidden; margin-top: 8px; }
+    .progress-fill { height: 100%; background: #0d99ff; transition: width 0.3s ease; width: 0%; }
+    .optimization-hint { font-size: 10px; color: #666; margin-top: 4px; font-style: italic; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="title">🧹 Simple Image Cleaner v3.2</div>
+    <div class="subtitle">GIMP Heal Selection + Basic Tools</div>
+  </div>
+  
+  <div class="section">
+    <div class="section-title"><span>1️⃣</span><span>Quét Selection</span></div>
+    <button class="button button-primary" id="scanBtn">🔍 Quét Selection</button>
+  </div>
+  
+  <div class="section" id="imageSection" style="display: none;">
+    <div class="section-title"><span>2️⃣</span><span>Thông tin ảnh</span></div>
+    <div class="info-box" id="imageInfo"></div>
+  </div>
+  
+  <div class="section" id="areasSection" style="display: none;">
+    <div class="section-title"><span>3️⃣</span><span>Vùng text (<span id="areaCount">0</span>)</span></div>
+    <div class="cleaning-areas" id="cleaningAreas"></div>
+  </div>
+  
+  <div class="section" id="cleaningSection" style="display: none;">
+    <div class="section-title"><span>4️⃣</span><span>Công cụ Healing</span></div>
+    <div class="controls">
+      <div class="control-group">
+        <label class="control-label">Phương pháp:</label>
+        <select class="control-select" id="cleaningMethod">
+          <option value="gimp_heal">GIMP Heal Selection</option>
+          <option value="solid_fill">Solid Fill</option>
+          <option value="blur_fill">Blur Fill</option>
+        </select>
+        <div class="optimization-hint" id="methodHint">Giống GIMP Resynthesizer</div>
+      </div>
+      
+      <div class="control-group">
+        <label class="control-label">Padding (pixels):</label>
+        <input type="number" class="control-input" id="padding" value="2" min="0" max="10">
+      </div>
+      
+      <div class="control-group">
+        <label class="control-label">Màu fill (RGB):</label>
+        <input type="text" class="control-input" id="fillColor" value="255,255,255">
+      </div>
+      
+      <div class="control-group" id="gimpParams" style="display: none;">
+        <label class="control-label">Sampling Radius:</label>
+        <input type="number" class="control-input" id="samplingRadius" value="50" min="10" max="200" step="5">
+        <label class="control-label">Sample từ:</label>
+        <select class="control-select" id="direction">
+          <option value="0">Tất cả xung quanh</option>
+          <option value="1">Hai bên (trái/phải)</option>
+          <option value="2">Trên/dưới</option>
+        </select>
+        <label class="control-label">Thứ tự fill:</label>
+        <select class="control-select" id="fillOrder">
+          <option value="0">Random (GIMP style)</option>
+          <option value="1">Từ ngoài vào trong</option>
+          <option value="2">Từ trong ra ngoài</option>
+        </select>
+      </div>
+      
+      <div class="control-group" id="blurParams" style="display: none;">
+        <label class="control-label">Blur Radius:</label>
+        <input type="number" class="control-input" id="blurRadius" value="8" min="1" max="30">
+      </div>
+    </div>
+    
+    <button class="button button-primary" id="cleanBtn" style="margin-top: 16px;" disabled>✨ Xử lý ảnh</button>
+    
+    <div id="progressContainer" style="display: none;">
+      <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+      <div class="optimization-hint" id="progressText">Đang xử lý...</div>
+    </div>
+  </div>
+  
+  <div id="status"></div>
+  
+  <script>
+    class GimpHealingAlgorithms {
+      constructor() { 
+        this.progressCallback = null; 
+      }
+
+      processArea(ctx, area, options, originalImage, progressCallback) {
+        this.progressCallback = progressCallback;
+        const x = Math.max(0, area.x - options.padding);
+        const y = Math.max(0, area.y - options.padding);
+        const width = Math.min(originalImage.width - x, area.width + options.padding * 2);
+        const height = Math.min(originalImage.height - y, area.height + options.padding * 2);
+        
+        console.log(`🔧 Processing "${area.name}" with ${options.method}`);
+        
+        switch (options.method) {
+          case 'gimp_heal':
+            this.gimpHealSelection(ctx, x, y, width, height, originalImage, options);
+            break;
+          case 'solid_fill':
+            this.solidFill(ctx, x, y, width, height, options.fillColor);
+            break;
+          case 'blur_fill':
+            this.blurFill(ctx, x, y, width, height, originalImage, options);
+            break;
+        }
+      }
+
+      // GIMP Heal Selection - EXACT Original Algorithm
+      gimpHealSelection(ctx, x, y, width, height, originalImage, options) {
+        console.log('🔥 GIMP Heal Selection (EXACT 1:1 ALGORITHM) starting...');
+        
+        const imageData = ctx.getImageData(0, 0, originalImage.width, originalImage.height);
+        const data = imageData.data;
+        const imgWidth = originalImage.width;
+        const imgHeight = originalImage.height;
+        
+        const samplingRadiusParam = options.samplingRadius || 50;
+        const directionParam = options.direction || 0;
+        const orderParam = options.fillOrder || 0;
+        
+        console.log(`📋 GIMP Original params: samplingRadius=${samplingRadiusParam}, direction=${directionParam}, order=${orderParam}`);
+        
+        // Step 1: Create target bounds
+        const targetBounds = [x, y, x + width, y + height];
+        const [targetLowerLeftX, targetLowerLeftY, targetUpperRightX, targetUpperRightY] = targetBounds;
+        
+        // Step 2: Grow selection by samplingRadiusParam
+        const grownBounds = [
+          Math.max(0, targetLowerLeftX - samplingRadiusParam),
+          Math.max(0, targetLowerLeftY - samplingRadiusParam),
+          Math.min(imgWidth, targetUpperRightX + samplingRadiusParam),
+          Math.min(imgHeight, targetUpperRightY + samplingRadiusParam)
+        ];
+        const [frisketLowerLeftX, frisketLowerLeftY, frisketUpperRightX, frisketUpperRightY] = grownBounds;
+        
+        const frisketWidth = frisketUpperRightX - frisketLowerLeftX;
+        const frisketHeight = frisketUpperRightY - frisketLowerLeftY;
+        
+        // Step 3: Crop corpus based on direction
+        let newWidth, newHeight, newLLX, newLLY;
+        
+        if (directionParam === 0) { // all around
+          newWidth = frisketWidth;
+          newHeight = frisketHeight;
+          newLLX = frisketLowerLeftX;
+          newLLY = frisketLowerLeftY;
+        } else if (directionParam === 1) { // sides
+          newWidth = frisketWidth;
+          newHeight = targetUpperRightY - targetLowerLeftY;
+          newLLX = frisketLowerLeftX;
+          newLLY = targetLowerLeftY;
+        } else if (directionParam === 2) { // above and below
+          newWidth = targetUpperRightX - targetLowerLeftX;
+          newHeight = frisketHeight;
+          newLLX = targetLowerLeftX;
+          newLLY = frisketLowerLeftY;
+        }
+        
+        // Restrict crop to image size
+        newWidth = Math.min(imgWidth - newLLX, newWidth);
+        newHeight = Math.min(imgHeight - newLLY, newHeight);
+        
+        console.log(`📐 Corpus area: x=${newLLX}, y=${newLLY}, w=${newWidth}, h=${newHeight}`);
+        
+        // Step 4: Create corpus mask (donut shape)
+        const corpusMask = this.createGimpCorpusMask(
+          imgWidth, imgHeight,
+          newLLX, newLLY, newWidth, newHeight,
+          targetLowerLeftX, targetLowerLeftY, targetUpperRightX, targetUpperRightY
+        );
+        
+        // Step 5: Collect corpus samples
+        const corpusSamples = this.collectGimpCorpusSamples(data, imgWidth, imgHeight, corpusMask);
+        
+        if (corpusSamples.length === 0) {
+          console.warn('⚠️ No corpus samples found, falling back to blur fill');
+          this.blurFill(ctx, x, y, width, height, originalImage, options);
+          return;
+        }
+        
+        console.log(`📊 Created ${corpusSamples.length} corpus samples from donut mask`);
+        
+        // Step 6: Calculate useBorder parameter
+        let useBorder;
+        if (orderParam === 0) {
+          useBorder = 1; // Random filling
+        } else if (orderParam === 1) {
+          useBorder = directionParam + 2; // Inward: 2,3,4
+        } else {
+          useBorder = directionParam + 5; // Outward: 5,6,7
+        }
+        
+        console.log(`🎯 GIMP useBorder parameter: ${useBorder}`);
+        
+        // Step 7: Apply GIMP-style resynthesis
+        this.applyGimpResynthesisUltimate(
+          ctx, data, imgWidth, imgHeight,
+          x, y, width, height,
+          corpusSamples, useBorder
+        );
+        
+        ctx.putImageData(imageData, 0, 0);
+        console.log(`🎉 GIMP Heal (EXACT 1:1) completed!`);
+      }
+
+      // Create corpus mask exactly like GIMP (donut shape)
+      createGimpCorpusMask(imgWidth, imgHeight, corpusX, corpusY, corpusW, corpusH, targetX, targetY, targetW, targetH) {
+        const mask = new Array(imgWidth * imgHeight).fill(false);
+        
+        // Mark corpus area as true
+        for (let y = corpusY; y < corpusY + corpusH; y++) {
+          for (let x = corpusX; x < corpusX + corpusW; x++) {
+            if (x >= 0 && y >= 0 && x < imgWidth && y < imgHeight) {
+              mask[y * imgWidth + x] = true;
+            }
+          }
+        }
+        
+        // Subtract target area (punch hole) - creates the donut
+        for (let y = targetY; y < targetY + targetH; y++) {
+          for (let x = targetX; x < targetX + targetW; x++) {
+            if (x >= 0 && y >= 0 && x < imgWidth && y < imgHeight) {
+              mask[y * imgWidth + x] = false;
+            }
+          }
+        }
+        
+        return mask;
+      }
+
+      // Collect samples from corpus mask
+      collectGimpCorpusSamples(data, imgWidth, imgHeight, corpusMask) {
+        const samples = [];
+        
+        for (let y = 0; y < imgHeight; y++) {
+          for (let x = 0; x < imgWidth; x++) {
+            const index = y * imgWidth + x;
+            
+            if (corpusMask[index]) {
+              const dataIndex = index * 4;
+              samples.push({
+                x: x,
+                y: y,
+                r: data[dataIndex],
+                g: data[dataIndex + 1],
+                b: data[dataIndex + 2],
+                a: data[dataIndex + 3]
+              });
+            }
+          }
+        }
+        
+        console.log(`📊 GIMP exact corpus: ${samples.length} samples collected`);
+        return samples;
+      }
+
+      // Apply GIMP-style resynthesis with ULTIMATE smoothing
+      applyGimpResynthesisUltimate(ctx, data, imgWidth, imgHeight, targetX, targetY, targetW, targetH, corpusSamples, useBorder) {
+        // Get pixels to heal
+        const pixelsToHeal = [];
+        for (let y = targetY; y < targetY + targetH; y++) {
+          for (let x = targetX; x < targetX + targetW; x++) {
+            if (x >= 0 && y >= 0 && x < imgWidth && y < imgHeight) {
+              pixelsToHeal.push({ x: x, y: y });
+            }
+          }
+        }
+        
+        // Apply GIMP filling order based on useBorder
+        if (useBorder === 1) {
+          this.shuffleArray(pixelsToHeal);
+        } else if (useBorder >= 2 && useBorder <= 4) {
+          this.applyInwardOrder(pixelsToHeal, targetX, targetY, targetW, targetH);
+        } else if (useBorder >= 5 && useBorder <= 7) {
+          this.applyOutwardOrder(pixelsToHeal, targetX, targetY, targetW, targetH);
+        }
+        
+        console.log(`🎲 Healing ${pixelsToHeal.length} pixels with ULTIMATE order mode ${useBorder}`);
+        
+        // Multi-pass with different strategies
+        const passes = 2;
+        
+        for (let pass = 0; pass < passes; pass++) {
+          let healedCount = 0;
+          
+          for (let i = 0; i < pixelsToHeal.length; i++) {
+            const pixel = pixelsToHeal[i];
+            
+            // Progress callback
+            if (i % 200 === 0 && this.progressCallback) {
+              const progress = (pass + i / pixelsToHeal.length) / passes;
+              this.progressCallback(progress * 0.9);
+            }
+            
+            // Find best corpus sample
+            const bestSample = this.findBestGimpCorpusSampleExact(
+              data, imgWidth, imgHeight,
+              pixel.x, pixel.y,
+              corpusSamples,
+              targetX, targetY, targetW, targetH
+            );
+            
+            if (bestSample) {
+              const srcIndex = (bestSample.y * imgWidth + bestSample.x) * 4;
+              const dstIndex = (pixel.y * imgWidth + pixel.x) * 4;
+              
+              // Progressive blending for smoothness
+              let blend = 1.0;
+              
+              if (pass === 1) {
+                blend = this.isEdgePixel(pixel.x, pixel.y, targetX, targetY, targetW, targetH) ? 0.8 : 0.9;
+              }
+              
+              // Apply color with blending
+              data[dstIndex] = Math.round(data[dstIndex] * (1 - blend) + data[srcIndex] * blend);
+              data[dstIndex + 1] = Math.round(data[dstIndex + 1] * (1 - blend) + data[srcIndex + 1] * blend);
+              data[dstIndex + 2] = Math.round(data[dstIndex + 2] * (1 - blend) + data[srcIndex + 2] * blend);
+              data[dstIndex + 3] = data[srcIndex + 3];
+              
+              healedCount++;
+            }
+          }
+          
+          console.log(`✨ ULTIMATE Pass ${pass + 1}: healed ${healedCount}/${pixelsToHeal.length} pixels`);
+        }
+        
+        // Final smoothing pass
+        this.applyUltimateSmoothingNew(data, imgWidth, imgHeight, targetX, targetY, targetW, targetH);
+      }
+
+      // Find best corpus sample with enhanced gradient-aware matching
+      findBestGimpCorpusSampleExact(data, imgWidth, imgHeight, px, py, corpusSamples, targetX, targetY, targetW, targetH) {
+        let bestSample = null;
+        let bestScore = Infinity;
+        
+        const trys = 500;
+        const autism = 0.117;
+        const patchSize = 4;
+        
+        // Analyze gradient pattern
+        const gradientInfo = this.analyzeGradientPattern(data, imgWidth, imgHeight, px, py, targetX, targetY, targetW, targetH);
+        
+        const samplesToTest = Math.min(trys, corpusSamples.length);
+        const testSamples = this.shuffleArray([...corpusSamples]).slice(0, samplesToTest);
+        
+        for (const sample of testSamples) {
+          // Calculate patch similarity
+          const patchScore = this.calculateGimpPatchSimilarity(
+            data, imgWidth, imgHeight,
+            px, py, sample.x, sample.y,
+            patchSize, autism,
+            targetX, targetY, targetW, targetH
+          );
+          
+          // Calculate gradient compatibility
+          const gradientScore = this.calculateGradientCompatibility(
+            data, imgWidth, imgHeight, 
+            sample.x, sample.y, gradientInfo
+          );
+          
+          // Combined score: 70% patch + 30% gradient
+          const combinedScore = patchScore * 0.7 + gradientScore * 0.3;
+          
+          if (combinedScore < bestScore) {
+            bestScore = combinedScore;
+            bestSample = sample;
+            
+            const strictnessThreshold = autism * 25000;
+            if (combinedScore < strictnessThreshold) {
+              break;
+            }
+          }
+        }
+        
+        // Gradient-aware fallback
+        if (!bestSample || bestScore > autism * 40000) {
+          bestSample = this.findGradientAwareFallback(data, imgWidth, imgHeight, px, py, corpusSamples, gradientInfo, targetX, targetY, targetW, targetH);
+        }
+        
+        return bestSample;
+      }
+
+      // Analyze gradient pattern around pixel
+      analyzeGradientPattern(data, imgWidth, imgHeight, px, py, targetX, targetY, targetW, targetH) {
+        const sampleRadius = 8;
+        const samples = [];
+        
+        for (let dy = -sampleRadius; dy <= sampleRadius; dy += 2) {
+          for (let dx = -sampleRadius; dx <= sampleRadius; dx += 2) {
+            const x = px + dx, y = py + dy;
+            
+            if (x < 0 || y < 0 || x >= imgWidth || y >= imgHeight) continue;
+            if (x >= targetX && x < targetX + targetW && y >= targetY && y < targetY + targetH) continue;
+            
+            const idx = (y * imgWidth + x) * 4;
+            samples.push({
+              x: dx, y: dy,
+              r: data[idx], g: data[idx + 1], b: data[idx + 2],
+              distance: Math.sqrt(dx * dx + dy * dy)
+            });
+          }
+        }
+        
+        if (samples.length < 4) return null;
+        
+        // Calculate gradient direction and strength
+        let gradientX = 0, gradientY = 0;
+        let totalWeight = 0;
+        
+        for (const sample of samples) {
+          const weight = 1.0 / (1.0 + sample.distance);
+          const intensity = (sample.r + sample.g + sample.b) / 3;
+          
+          gradientX += (sample.x / sample.distance) * intensity * weight;
+          gradientY += (sample.y / sample.distance) * intensity * weight;
+          totalWeight += weight;
+        }
+        
+        if (totalWeight > 0) {
+          gradientX /= totalWeight;
+          gradientY /= totalWeight;
+        }
+        
+        return {
+          dirX: gradientX,
+          dirY: gradientY,
+          strength: Math.sqrt(gradientX * gradientX + gradientY * gradientY),
+          samples: samples
+        };
+      }
+
+      // Calculate gradient compatibility score
+      calculateGradientCompatibility(data, imgWidth, imgHeight, sampleX, sampleY, gradientInfo) {
+        if (!gradientInfo) return 0;
+        
+        let totalDiff = 0;
+        let validComparisons = 0;
+        
+        for (const expectedSample of gradientInfo.samples) {
+          const checkX = sampleX + expectedSample.x;
+          const checkY = sampleY + expectedSample.y;
+          
+          if (checkX < 0 || checkY < 0 || checkX >= imgWidth || checkY >= imgHeight) continue;
+          
+          const idx = (checkY * imgWidth + checkX) * 4;
+          const actualR = data[idx];
+          const actualG = data[idx + 1];
+          const actualB = data[idx + 2];
+          
+          const dr = actualR - expectedSample.r;
+          const dg = actualG - expectedSample.g;
+          const db = actualB - expectedSample.b;
+          
+          const weight = 1.0 / (1.0 + expectedSample.distance);
+          totalDiff += (dr * dr + dg * dg + db * db) * weight;
+          validComparisons += weight;
+        }
+        
+        return validComparisons > 0 ? totalDiff / validComparisons : 10000;
+      }
+
+      // Gradient-aware fallback
+      findGradientAwareFallback(data, imgWidth, imgHeight, px, py, corpusSamples, gradientInfo, targetX, targetY, targetW, targetH) {
+        if (!gradientInfo) {
+          return this.findFallbackSample(data, imgWidth, imgHeight, px, py, corpusSamples, targetX, targetY, targetW, targetH);
+        }
+        
+        let bestSample = null;
+        let bestScore = Infinity;
+        
+        for (const sample of corpusSamples) {
+          const score = this.calculateGradientCompatibility(data, imgWidth, imgHeight, sample.x, sample.y, gradientInfo);
+          
+          if (score < bestScore) {
+            bestScore = score;
+            bestSample = sample;
+          }
+        }
+        
+        return bestSample || corpusSamples[0];
+      }
+
+      // Ultimate smoothing with complete noise elimination
+      applyUltimateSmoothingNew(data, imgWidth, imgHeight, targetX, targetY, targetW, targetH) {
+        console.log('🌟 Applying ULTIMATE SMOOTH with complete noise elimination...');
+        
+        let tempData = new Uint8ClampedArray(data);
+        
+        // STEP 1: Aggressive denoising first
+        this.applyAggressiveDenoising(tempData, imgWidth, imgHeight, targetX, targetY, targetW, targetH);
+        
+        // STEP 2: Enhanced smoothing passes
+        const smoothingPasses = [
+          { strength: 0.60, kernel: 5, name: "Denoise" },
+          { strength: 0.50, kernel: 5, name: "Heavy Smooth" },
+          { strength: 0.40, kernel: 7, name: "Ultra Smooth" },
+          { strength: 0.30, kernel: 7, name: "Perfect Smooth" },
+          { strength: 0.20, kernel: 9, name: "Final Polish" }
+        ];
+        
+        for (let pass = 0; pass < smoothingPasses.length; pass++) {
+          const { strength, kernel, name } = smoothingPasses[pass];
+          console.log(`🔄 Pass ${pass + 1}/5: ${name}`);
+          
+          for (let y = targetY; y < targetY + targetH; y++) {
+            for (let x = targetX; x < targetX + targetW; x++) {
+              const centerIdx = (y * imgWidth + x) * 4;
+              
+              const smoothed = this.calculateUltraAggressiveSmooth(
+                tempData, imgWidth, imgHeight, x, y, kernel, strength
+              );
+              
+              if (smoothed) {
+                tempData[centerIdx] = Math.round(smoothed.r);
+                tempData[centerIdx + 1] = Math.round(smoothed.g);
+                tempData[centerIdx + 2] = Math.round(smoothed.b);
+              }
+            }
+          }
+        }
+        
+        // STEP 3: Final bilateral filter
+        this.applyBilateralFilter(tempData, data, imgWidth, imgHeight, targetX, targetY, targetW, targetH);
+        
+        console.log('✅ ULTIMATE SMOOTH completed');
+      }
+
+      // Aggressive denoising to eliminate speckled artifacts
+      applyAggressiveDenoising(data, imgWidth, imgHeight, targetX, targetY, targetW, targetH) {
+        console.log('🧹 Applying aggressive denoising...');
+        
+        const tempData = new Uint8ClampedArray(data);
+        
+        // Median filter for removing speckled noise
+        for (let y = targetY + 1; y < targetY + targetH - 1; y++) {
+          for (let x = targetX + 1; x < targetX + targetW - 1; x++) {
+            const centerIdx = (y * imgWidth + x) * 4;
+            
+            // Collect 3x3 neighborhood for median filtering
+            const rValues = [], gValues = [], bValues = [];
+            
+            for (let dy = -1; dy <= 1; dy++) {
+              for (let dx = -1; dx <= 1; dx++) {
+                const nx = x + dx, ny = y + dy;
+                if (nx >= 0 && ny >= 0 && nx < imgWidth && ny < imgHeight) {
+                  const idx = (ny * imgWidth + nx) * 4;
+                  rValues.push(tempData[idx]);
+                  gValues.push(tempData[idx + 1]);
+                  bValues.push(tempData[idx + 2]);
+                }
+              }
+            }
+            
+            // Apply median filter
+            rValues.sort((a, b) => a - b);
+            gValues.sort((a, b) => a - b);
+            bValues.sort((a, b) => a - b);
+            
+            const medianR = rValues[Math.floor(rValues.length / 2)];
+            const medianG = gValues[Math.floor(gValues.length / 2)];
+            const medianB = bValues[Math.floor(bValues.length / 2)];
+            
+            // Blend median with original (60% median, 40% original)
+            data[centerIdx] = Math.round(tempData[centerIdx] * 0.4 + medianR * 0.6);
+            data[centerIdx + 1] = Math.round(tempData[centerIdx + 1] * 0.4 + medianG * 0.6);
+            data[centerIdx + 2] = Math.round(tempData[centerIdx + 2] * 0.4 + medianB * 0.6);
+          }
+        }
+        
+        console.log('✅ Aggressive denoising completed');
+      }
+
+      // Ultra aggressive smoothing calculation
+      calculateUltraAggressiveSmooth(data, imgWidth, imgHeight, centerX, centerY, kernelSize, strength) {
+        const halfKernel = Math.floor(kernelSize / 2);
+        let totalR = 0, totalG = 0, totalB = 0, totalWeight = 0;
+        
+        // Large neighborhood averaging
+        for (let dy = -halfKernel; dy <= halfKernel; dy++) {
+          for (let dx = -halfKernel; dx <= halfKernel; dx++) {
+            const x = centerX + dx, y = centerY + dy;
+            
+            if (x < 0 || y < 0 || x >= imgWidth || y >= imgHeight) continue;
+            
+            const idx = (y * imgWidth + x) * 4;
+            const r = data[idx], g = data[idx + 1], b = data[idx + 2];
+            
+            // Equal weighting for maximum smoothness
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            const weight = 1.0 / (1.0 + distance * 0.1);
+            
+            totalR += r * weight;
+            totalG += g * weight;
+            totalB += b * weight;
+            totalWeight += weight;
+          }
+        }
+        
+        return totalWeight > 0 ? {
+          r: totalR / totalWeight,
+          g: totalG / totalWeight,
+          b: totalB / totalWeight
+        } : null;
+      }
+
+      // Bilateral filter for ultimate smoothness while preserving edges
+      applyBilateralFilter(inputData, outputData, imgWidth, imgHeight, targetX, targetY, targetW, targetH) {
+        console.log('🎯 Applying bilateral filter for ultimate perfection...');
+        
+        const sigmaSpatial = 3.0;
+        const sigmaColor = 30.0;
+        
+        for (let y = targetY; y < targetY + targetH; y++) {
+          for (let x = targetX; x < targetX + targetW; x++) {
+            const centerIdx = (y * imgWidth + x) * 4;
+            const centerR = inputData[centerIdx];
+            const centerG = inputData[centerIdx + 1];
+            const centerB = inputData[centerIdx + 2];
+            
+            let totalR = 0, totalG = 0, totalB = 0, totalWeight = 0;
+            
+            // 5x5 bilateral filter
+            for (let dy = -2; dy <= 2; dy++) {
+              for (let dx = -2; dx <= 2; dx++) {
+                const nx = x + dx, ny = y + dy;
+                
+                if (nx >= targetX && ny >= targetY && nx < targetX + targetW && ny < targetY + targetH) {
+                  const idx = (ny * imgWidth + nx) * 4;
+                  const r = inputData[idx];
+                  const g = inputData[idx + 1];
+                  const b = inputData[idx + 2];
+                  
+                  // Spatial weight (Gaussian)
+                  const spatialDist = dx * dx + dy * dy;
+                  const spatialWeight = Math.exp(-spatialDist / (2 * sigmaSpatial * sigmaSpatial));
+                  
+                  // Color weight (preserve similar colors)
+                  const colorDist = (r - centerR) * (r - centerR) + 
+                                   (g - centerG) * (g - centerG) + 
+                                   (b - centerB) * (b - centerB);
+                  const colorWeight = Math.exp(-colorDist / (2 * sigmaColor * sigmaColor));
+                  
+                  const weight = spatialWeight * colorWeight;
+                  
+                  totalR += r * weight;
+                  totalG += g * weight;
+                  totalB += b * weight;
+                  totalWeight += weight;
+                }
+              }
+            }
+            
+            if (totalWeight > 0) {
+              outputData[centerIdx] = Math.round(totalR / totalWeight);
+              outputData[centerIdx + 1] = Math.round(totalG / totalWeight);
+              outputData[centerIdx + 2] = Math.round(totalB / totalWeight);
+            }
+          }
+        }
+        
+        console.log('✅ Bilateral filter completed');
+      }
+
+      // Check if pixel is near edge of target area
+      isEdgePixel(px, py, targetX, targetY, targetW, targetH) {
+        const edgeDistance = 2;
+        return (
+          px < targetX + edgeDistance || 
+          px >= targetX + targetW - edgeDistance ||
+          py < targetY + edgeDistance || 
+          py >= targetY + targetH - edgeDistance
+        );
+      }
+
+      // GIMP-style patch similarity
+      calculateGimpPatchSimilarity(data, imgWidth, imgHeight, px1, py1, px2, py2, patchSize, autism, targetX, targetY, targetW, targetH) {
+        const halfPatch = Math.floor(patchSize / 2);
+        let totalDiff = 0;
+        let validPixels = 0;
+        let neighborCount = 0;
+        
+        for (let dy = -halfPatch; dy <= halfPatch; dy++) {
+          for (let dx = -halfPatch; dx <= halfPatch; dx++) {
+            if (dx === 0 && dy === 0) continue;
+            
+            const x1 = px1 + dx, y1 = py1 + dy;
+            const x2 = px2 + dx, y2 = py2 + dy;
+            
+            if (x1 < 0 || y1 < 0 || x1 >= imgWidth || y1 >= imgHeight ||
+                x2 < 0 || y2 < 0 || x2 >= imgWidth || y2 >= imgHeight) continue;
+            
+            if (x1 >= targetX && x1 < targetX + targetW && 
+                y1 >= targetY && y1 < targetY + targetH) continue;
+            
+            const idx1 = (y1 * imgWidth + x1) * 4;
+            const idx2 = (y2 * imgWidth + x2) * 4;
+            
+            const dr = data[idx1] - data[idx2];
+            const dg = data[idx1 + 1] - data[idx2 + 1];
+            const db = data[idx1 + 2] - data[idx2 + 2];
+            
+            const colorDiff = dr * dr + dg * dg + db * db;
+            
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            const weight = 1.0 / (1.0 + distance * 0.5);
+            
+            totalDiff += colorDiff * weight;
+            validPixels += weight;
+            neighborCount++;
+          }
+        }
+        
+        if (validPixels === 0) return Infinity;
+        
+        let score = totalDiff / validPixels;
+        score = score * (1.0 + autism * neighborCount);
+        
+        return score;
+      }
+
+      // GIMP-style inward filling order
+      applyInwardOrder(pixels, targetX, targetY, targetW, targetH) {
+        pixels.sort((a, b) => {
+          const distA = Math.min(
+            a.x - targetX, targetX + targetW - a.x - 1,
+            a.y - targetY, targetY + targetH - a.y - 1
+          );
+          const distB = Math.min(
+            b.x - targetX, targetX + targetW - b.x - 1,
+            b.y - targetY, targetY + targetH - b.y - 1
+          );
+          return distB - distA;
+        });
+      }
+
+      // GIMP-style outward filling order  
+      applyOutwardOrder(pixels, targetX, targetY, targetW, targetH) {
+        const centerX = targetX + targetW / 2;
+        const centerY = targetY + targetH / 2;
+        
+        pixels.sort((a, b) => {
+          const distA = Math.sqrt((a.x - centerX) ** 2 + (a.y - centerY) ** 2);
+          const distB = Math.sqrt((b.x - centerX) ** 2 + (b.y - centerY) ** 2);
+          return distA - distB;
+        });
+      }
+
+      // Fallback sample finder
+      findFallbackSample(data, imgWidth, imgHeight, px, py, corpusSamples, targetX, targetY, targetW, targetH) {
+        let bestSample = null;
+        let bestScore = Infinity;
+        
+        const refColor = this.getNeighborAverageColor(data, imgWidth, imgHeight, px, py, targetX, targetY, targetW, targetH);
+        
+        if (!refColor) {
+          return corpusSamples[Math.floor(Math.random() * corpusSamples.length)];
+        }
+        
+        for (const sample of corpusSamples) {
+          const dr = sample.r - refColor.r;
+          const dg = sample.g - refColor.g;
+          const db = sample.b - refColor.b;
+          const colorDiff = dr * dr + dg * dg + db * db;
+          
+          if (colorDiff < bestScore) {
+            bestScore = colorDiff;
+            bestSample = sample;
+          }
+        }
+        
+        return bestSample || corpusSamples[0];
+      }
+
+      // Get average color of valid neighbors
+      getNeighborAverageColor(data, imgWidth, imgHeight, px, py, targetX, targetY, targetW, targetH) {
+        const neighbors = [
+          {dx: -1, dy: 0}, {dx: 1, dy: 0},
+          {dx: 0, dy: -1}, {dx: 0, dy: 1},
+          {dx: -1, dy: -1}, {dx: 1, dy: 1},
+          {dx: -1, dy: 1}, {dx: 1, dy: -1}
+        ];
+        
+        let totalR = 0, totalG = 0, totalB = 0, count = 0;
+        
+        for (const {dx, dy} of neighbors) {
+          const x = px + dx, y = py + dy;
+          
+          if (x < 0 || y < 0 || x >= imgWidth || y >= imgHeight) continue;
+          if (x >= targetX && x < targetX + targetW && y >= targetY && y < targetY + targetH) continue;
+          
+          const idx = (y * imgWidth + x) * 4;
+          totalR += data[idx];
+          totalG += data[idx + 1];
+          totalB += data[idx + 2];
+          count++;
+        }
+        
+        return count > 0 ? {
+          r: Math.round(totalR / count),
+          g: Math.round(totalG / count),
+          b: Math.round(totalB / count)
+        } : null;
+      }
+
+      // Solid fill
+      solidFill(ctx, x, y, width, height, colorStr) {
+        const rgb = colorStr.split(',');
+        const r = parseInt(rgb[0]) || 255, g = parseInt(rgb[1]) || 255, b = parseInt(rgb[2]) || 255;
+        ctx.fillStyle = `rgb(${r},${g},${b})`;
+        ctx.fillRect(x, y, width, height);
+        if (this.progressCallback) this.progressCallback(0.95);
+      }
+
+      // Blur fill with adjustable radius
+      blurFill(ctx, x, y, width, height, originalImage, options) {
+        const blurRadius = options.blurRadius || 8;
+        const padding = Math.max(15, blurRadius * 2);
+        
+        const sampleX = Math.max(0, x - padding), sampleY = Math.max(0, y - padding);
+        const sampleWidth = Math.min(originalImage.width - sampleX, width + padding * 2);
+        const sampleHeight = Math.min(originalImage.height - sampleY, height + padding * 2);
+        
+        const tempCanvas = document.createElement('canvas');
+        const tempCtx = tempCanvas.getContext('2d');
+        tempCanvas.width = sampleWidth; tempCanvas.height = sampleHeight;
+        
+        tempCtx.drawImage(originalImage, sampleX, sampleY, sampleWidth, sampleHeight, 0, 0, sampleWidth, sampleHeight);
+        tempCtx.filter = `blur(${blurRadius}px)`;
+        tempCtx.drawImage(tempCanvas, 0, 0);
+        
+        ctx.drawImage(tempCanvas, x - sampleX, y - sampleY, width, height, x, y, width, height);
+        if (this.progressCallback) this.progressCallback(0.95);
+      }
+
+      // Utility functions
+      shuffleArray(array) {
+        for (let i = array.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [array[i], array[j]] = [array[j], array[i]];
+        }
+        return array;
+      }
+    }
+
+    // Main Plugin Logic
+    document.addEventListener('DOMContentLoaded', initializePlugin);
+    
+    function initializePlugin() {
+      console.log('🚀 Plugin initializing...');
+      
+      let currentData = null;
+      const healingAlgorithms = new GimpHealingAlgorithms();
+      const elements = {
+        scanBtn: document.getElementById('scanBtn'),
+        cleanBtn: document.getElementById('cleanBtn'),
+        methodSelect: document.getElementById('cleaningMethod'),
+        progressContainer: document.getElementById('progressContainer'),
+        progressFill: document.getElementById('progressFill'),
+        progressText: document.getElementById('progressText'),
+        methodHint: document.getElementById('methodHint')
+      };
+      
+      const methodHints = {
+        'gimp_heal': 'Giống GIMP Resynthesizer - Tạo corpus từ xung quanh',
+        'solid_fill': 'Tô màu đồng nhất - Nhanh nhất',
+        'blur_fill': 'Làm mờ vùng xung quanh - Blur radius tuỳ chỉnh'
+      };
+      
+      // Event Listeners
+      elements.scanBtn.addEventListener('click', () => {
+        parent.postMessage({ pluginMessage: { type: 'scan-selection' } }, '*');
+      });
+      
+      elements.cleanBtn.addEventListener('click', () => {
+        const options = {
+          method: elements.methodSelect.value,
+          padding: parseInt(document.getElementById('padding').value) || 2,
+          fillColor: document.getElementById('fillColor').value,
+          samplingRadius: parseInt(document.getElementById('samplingRadius')?.value) || 50,
+          direction: parseInt(document.getElementById('direction')?.value) || 0,
+          fillOrder: parseInt(document.getElementById('fillOrder')?.value) || 0,
+          blurRadius: parseInt(document.getElementById('blurRadius')?.value) || 8
+        };
+        
+        showProgress('Đang xử lý ảnh...', 0);
+        elements.cleanBtn.disabled = true;
+        parent.postMessage({ pluginMessage: { type: 'clean-image', data: options } }, '*');
+      });
+      
+      elements.methodSelect.addEventListener('change', function() {
+        updateParameterVisibility(this.value);
+        elements.methodHint.textContent = methodHints[this.value] || '';
+      });
+      
+      function updateParameterVisibility(method) {
+        document.getElementById('gimpParams').style.display = method === 'gimp_heal' ? 'block' : 'none';
+        document.getElementById('blurParams').style.display = method === 'blur_fill' ? 'block' : 'none';
+      }
+      
+      function showStatus(message, type) {
+        const statusEl = document.getElementById('status');
+        statusEl.className = 'status status-' + type;
+        statusEl.textContent = message;
+        statusEl.style.display = 'block';
+        if (type === 'success' || type === 'info') setTimeout(() => statusEl.style.display = 'none', 3000);
+      }
+      
+      function showProgress(text, progress) {
+        elements.progressContainer.style.display = 'block';
+        elements.progressFill.style.width = Math.round(progress * 100) + '%';
+        elements.progressText.textContent = text + ' (' + Math.round(progress * 100) + '%)';
+      }
+      
+      function hideProgress() { elements.progressContainer.style.display = 'none'; }
+      
+      function updateImageInfo(data) {
+        document.getElementById('imageInfo').innerHTML = 
+          `<div class="info-row"><span class="info-label">Tên:</span><span class="info-value">${data.name}</span></div>` +
+          `<div class="info-row"><span class="info-label">Kích thước:</span><span class="info-value">${data.width} × ${data.height}</span></div>` +
+          `<div class="info-row"><span class="info-label">Có ảnh:</span><span class="info-value">${data.hasImage ? '✅ Có' : '❌ Không'}</span></div>`;
+      }
+      
+      function updateCleaningAreas(areas) {
+        const cleaningAreas = document.getElementById('cleaningAreas');
+        cleaningAreas.innerHTML = '';
+        document.getElementById('areaCount').textContent = areas.length;
+        
+        areas.forEach(area => {
+          const item = document.createElement('div');
+          item.className = 'area-item';
+          item.innerHTML = 
+            `<div><div class="area-name">${area.name}</div></div>` +
+            `<div class="area-coords">x:${area.x}, y:${area.y}, ${area.width}×${area.height}</div>`;
+          cleaningAreas.appendChild(item);
+        });
+        
+        elements.cleanBtn.disabled = areas.length === 0;
+      }
+      
+      function processImageInUI(imageBytes, cleaningAreas, options) {
+        return new Promise((resolve, reject) => {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          const blob = new Blob([new Uint8Array(imageBytes)], { type: 'image/png' });
+          const img = new Image();
+          
+          img.onload = () => {
+            canvas.width = img.width; canvas.height = img.height;
+            ctx.drawImage(img, 0, 0);
+            
+            cleaningAreas.forEach((area, i) => {
+              const baseProgress = i / cleaningAreas.length;
+              showProgress(`Đang xử lý vùng "${area.name}"...`, baseProgress);
+              healingAlgorithms.processArea(ctx, area, options, img, (progress) => {
+                showProgress(`Đang xử lý vùng "${area.name}"...`, baseProgress + progress / cleaningAreas.length);
+              });
+            });
+            
+            showProgress('Hoàn thành xử lý...', 0.95);
+            canvas.toBlob(blob => {
+              const reader = new FileReader();
+              reader.onload = () => resolve(Array.from(new Uint8Array(reader.result)));
+              reader.readAsArrayBuffer(blob);
+            }, 'image/png');
+            
+            URL.revokeObjectURL(blob.src);
+          };
+          
+          img.onerror = () => reject(new Error('Failed to load image'));
+          img.src = URL.createObjectURL(blob);
+        });
+      }
+      
+      // Message Handler
+      window.addEventListener('message', (event) => {
+        const msg = event.data.pluginMessage;
+        if (!msg) return;
+        
+        switch (msg.type) {
+          case 'scan-complete':
+            currentData = msg.data;
+            updateImageInfo(msg.data.imageInfo);
+            updateCleaningAreas(msg.data.cleaningAreas);
+            
+            ['imageSection', 'areasSection', 'cleaningSection'].forEach(id => {
+              document.getElementById(id).style.display = 'block';
+            });
+            
+            showStatus(`Quét hoàn thành! Tìm thấy ${msg.data.totalBboxes} vùng text`, 'success');
+            break;
+            
+          case 'process-image':
+            processImageInUI(msg.data.imageBytes, msg.data.cleaningAreas, msg.data.options)
+              .then(cleanedBytes => {
+                showStatus('Xử lý ảnh hoàn thành!', 'success');
+                parent.postMessage({ pluginMessage: { type: 'image-processed', data: { cleanedBytes } } }, '*');
+              })
+              .catch(error => {
+                hideProgress();
+                showStatus('Lỗi xử lý: ' + error.message, 'error');
+                parent.postMessage({ pluginMessage: { type: 'image-process-error', message: error.message } }, '*');
+              });
+            break;
+            
+          case 'clean-success':
+            elements.cleanBtn.disabled = false;
+            hideProgress();
+            showStatus(msg.message, 'success');
+            break;
+            
+          case 'error':
+            elements.cleanBtn.disabled = false;
+            hideProgress();
+            showStatus(msg.message, 'error');
+            break;
+        }
+      });
+      
+      // Initialize UI
+      updateParameterVisibility(elements.methodSelect.value);
+      elements.methodHint.textContent = methodHints[elements.methodSelect.value];
+      console.log('✅ Plugin initialization complete');
+    }
+    
+    if (document.readyState !== 'loading') initializePlugin();
+  </script>
+</body>
+</html>
