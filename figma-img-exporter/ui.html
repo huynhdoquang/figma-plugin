@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Game Localization Exporter</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-size: 12px;
+      line-height: 1.4;
+      color: #333;
+      background: #fff;
+      padding: 16px;
+    }
+    
+    .header {
+      margin-bottom: 24px;
+    }
+    
+    .title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #1a1a1a;
+      margin-bottom: 8px;
+    }
+    
+    .subtitle {
+      color: #666;
+      font-size: 11px;
+    }
+    
+    .section {
+      margin-bottom: 20px;
+      padding: 16px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      border: 1px solid #e1e5e9;
+    }
+    
+    .section-title {
+      font-weight: 600;
+      margin-bottom: 12px;
+      color: #1a1a1a;
+    }
+    
+    .upload-area {
+      border: 2px dashed #ccc;
+      border-radius: 8px;
+      padding: 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: #fff;
+    }
+    
+    .upload-area:hover {
+      border-color: #0d99ff;
+      background: #f0f8ff;
+    }
+    
+    .upload-area.selected {
+      border-color: #0d99ff;
+      background: #e6f3ff;
+    }
+    
+    .file-input {
+      display: none;
+    }
+    
+    .upload-text {
+      color: #666;
+      margin-bottom: 8px;
+    }
+    
+    .upload-button {
+      display: inline-block;
+      padding: 8px 16px;
+      background: #0d99ff;
+      color: white;
+      border-radius: 6px;
+      text-decoration: none;
+      font-size: 11px;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+    }
+    
+    .options {
+      display: grid;
+      gap: 12px;
+    }
+    
+    .option-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    
+    .option-label {
+      font-weight: 500;
+      color: #1a1a1a;
+    }
+    
+    .radio-group {
+      display: flex;
+      gap: 16px;
+    }
+    
+    .radio-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    
+    .checkbox-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .data-preview {
+      max-height: 200px;
+      overflow-y: auto;
+      background: #fff;
+      border: 1px solid #e1e5e9;
+      border-radius: 6px;
+      padding: 12px;
+      font-family: 'Monaco', 'Menlo', monospace;
+      font-size: 10px;
+      color: #666;
+    }
+    
+    .buttons {
+      display: flex;
+      gap: 8px;
+      margin-top: 20px;
+    }
+    
+    .button {
+      flex: 1;
+      padding: 12px;
+      border: none;
+      border-radius: 6px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .button-primary {
+      background: #0d99ff;
+      color: white;
+    }
+    
+    .button-primary:hover {
+      background: #0b87e5;
+    }
+    
+    .button-secondary {
+      background: #f1f3f4;
+      color: #333;
+    }
+    
+    .button-secondary:hover {
+      background: #e8eaed;
+    }
+    
+    .button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    
+    .status {
+      padding: 8px 12px;
+      border-radius: 6px;
+      margin-top: 12px;
+      font-size: 11px;
+    }
+    
+    .status-success {
+      background: #e8f5e8;
+      color: #2d5a2d;
+      border: 1px solid #c3e6c3;
+    }
+    
+    .status-error {
+      background: #ffeaea;
+      color: #d32f2f;
+      border: 1px solid #ffcdd2;
+    }
+    
+    .frame-list {
+      max-height: 150px;
+      overflow-y: auto;
+      background: #fff;
+      border: 1px solid #e1e5e9;
+      border-radius: 6px;
+    }
+    
+    .frame-item {
+      display: flex;
+      align-items: center;
+      padding: 8px 12px;
+      border-bottom: 1px solid #f0f0f0;
+    }
+    
+    .frame-item:last-child {
+      border-bottom: none;
+    }
+    
+    .frame-checkbox {
+      margin-right: 8px;
+    }
+    
+    .frame-name {
+      font-weight: 500;
+      color: #1a1a1a;
+    }
+    
+    .frame-info {
+      font-size: 10px;
+      color: #666;
+      margin-left: auto;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="title">📤 Game Localization Exporter</div>
+    <div class="subtitle">Export localized images with folder selection</div>
+  </div>
+  
+  <div class="section">
+    <div class="section-title">🎯 Select Frames to Export</div>
+    <button class="button button-secondary" id="scanButton">
+      🔍 Scan for Localization Frames
+    </button>
+    <div id="framesList" class="frame-list" style="margin-top: 12px; display: none;"></div>
+  </div>
+  
+  <div class="section" id="optionsSection" style="display: none;">
+    <div class="section-title">⚙️ Export Options</div>
+    <div class="options">
+      <div class="option-group">
+        <div class="option-label">Language to Export:</div>
+        <div class="radio-group">
+          <div class="radio-item">
+            <input type="radio" id="langVi" name="language" value="vi" checked>
+            <label for="langVi">Vietnamese</label>
+          </div>
+          <div class="radio-item">
+            <input type="radio" id="langEn" name="language" value="en">
+            <label for="langEn">English</label>
+          </div>
+        </div>
+      </div>
+      
+      <div class="option-group">
+        <div class="option-label">Image Resampling:</div>
+        <div class="radio-group">
+          <div class="radio-item">
+            <input type="radio" id="resamplingBasic" name="resampling" value="basic" checked>
+            <label for="resamplingBasic">Basic</label>
+          </div>
+          <div class="radio-item">
+            <input type="radio" id="resamplingDetailed" name="resampling" value="detailed">
+            <label for="resamplingDetailed">Detailed</label>
+          </div>
+        </div>
+      </div>
+      
+      <div class="option-group">
+        <div class="checkbox-item">
+          <input type="checkbox" id="includeBBox">
+          <label for="includeBBox">Include bounding boxes</label>
+        </div>
+        <div class="checkbox-item">
+          <input type="checkbox" id="addSuffix" checked>
+          <label for="addSuffix">Add language suffix (_vi, _en)</label>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="buttons">
+    <button class="button button-primary" id="exportButton" disabled>
+      📤 Export as ZIP
+    </button>
+  </div>
+  
+  <div id="status"></div>
+  
+  <script>
+    let selectedFrames = [];
+    
+    // Elements
+    const scanButton = document.getElementById('scanButton');
+    const framesList = document.getElementById('framesList');
+    const optionsSection = document.getElementById('optionsSection');
+    const exportButton = document.getElementById('exportButton');
+    const status = document.getElementById('status');
+    
+    // Export button
+    exportButton.addEventListener('click', () => {
+      if (selectedFrames.length === 0) return;
+      
+      const selectedLanguage = document.querySelector('input[name="language"]:checked').value;
+      const selectedResampling = document.querySelector('input[name="resampling"]:checked').value;
+      const includeBBox = document.getElementById('includeBBox').checked;
+      const addSuffix = document.getElementById('addSuffix').checked;
+      
+      parent.postMessage({
+        pluginMessage: {
+          type: 'export-images',
+          data: {
+            frames: selectedFrames,
+            language: selectedLanguage,
+            resampling: selectedResampling,
+            includeBBox,
+            addSuffix
+          }
+        }
+      }, '*');
+      
+      showStatus('Starting export...', 'info');
+    });
+    
+    function showStatus(message, type) {
+      status.className = `status status-${type}`;
+      status.textContent = message;
+      status.style.display = 'block';
+    }
+    
+    // Scan for frames
+    scanButton.addEventListener('click', () => {
+      parent.postMessage({
+        pluginMessage: {
+          type: 'scan-frames'
+        }
+      }, '*');
+      
+      showStatus('Scanning for localization frames...', 'info');
+    });
+    
+    function updateExportButton() {
+      exportButton.disabled = selectedFrames.length === 0;
+    }
+    
+    function displayFrames(frames) {
+      framesList.innerHTML = '';
+      
+      frames.forEach((frame, index) => {
+        const frameDiv = document.createElement('div');
+        frameDiv.className = 'frame-item';
+        frameDiv.innerHTML = `
+          <input type="checkbox" class="frame-checkbox" id="frame_${index}" onchange="toggleFrame('${frame.id}', this.checked)">
+          <label for="frame_${index}" class="frame-name">${frame.name}</label>
+          <div class="frame-info">${frame.imageCount} images</div>
+        `;
+        framesList.appendChild(frameDiv);
+      });
+      
+      framesList.style.display = 'block';
+      optionsSection.style.display = 'block';
+      
+      showStatus(`Found ${frames.length} localization frames`, 'success');
+    }
+    
+    function toggleFrame(frameId, checked) {
+      if (checked) {
+        selectedFrames.push(frameId);
+      } else {
+        selectedFrames = selectedFrames.filter(id => id !== frameId);
+      }
+      updateExportButton();
+    }
+    
+    // Listen for messages from plugin
+    window.addEventListener('message', (event) => {
+      const msg = event.data.pluginMessage;
+      
+      if (msg.type === 'frames-scanned') {
+        displayFrames(msg.frames);
+      } else if (msg.type === 'export-success') {
+        showStatus(msg.message, 'success');
+      } else if (msg.type === 'export-error') {
+        showStatus(msg.message, 'error');
+      } else if (msg.type === 'create-zip') {
+        // Create ZIP file with all images
+        createAndDownloadZip(msg.files, msg.exportedCount);
+      }
+    });
+    
+    async function createAndDownloadZip(files, count) {
+      try {
+        // Import JSZip library (we'll include it inline)
+        const JSZip = await loadJSZip();
+        const zip = new JSZip();
+        
+        // Add all files to ZIP with folder structure
+        files.forEach(file => {
+          const uint8Array = new Uint8Array(file.data);
+          const filePath = file.path ? `${file.path}/${file.filename}` : file.filename;
+          zip.file(filePath, uint8Array);
+        });
+        
+        // Generate ZIP
+        const zipBlob = await zip.generateAsync({ type: 'blob' });
+        
+        // Download ZIP
+        const url = URL.createObjectURL(zipBlob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `localization_export.zip`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // Clean up
+        setTimeout(() => {
+          URL.revokeObjectURL(url);
+        }, 1000);
+        
+        showStatus(`Successfully exported ${count} images to localization_export.zip`, 'success');
+        
+      } catch (error) {
+        console.error('ZIP creation failed:', error);
+        showStatus('Failed to create ZIP file: ' + error.message, 'error');
+      }
+    }
+    
+    // Load JSZip library inline
+    function loadJSZip() {
+      return new Promise((resolve, reject) => {
+        if (window.JSZip) {
+          resolve(window.JSZip);
+          return;
+        }
+        
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+        script.onload = () => resolve(window.JSZip);
+        script.onerror = () => reject(new Error('Failed to load JSZip'));
+        document.head.appendChild(script);
+      });
+    }
+  </script>
+</body>
+</html>
