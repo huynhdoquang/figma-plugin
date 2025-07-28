@@ -51,7 +51,7 @@ async function importLocalizationData(data) {
   
   // Convert CSV rows to images structure like original JSON
   const images = {};
-  csvRows.forEach(row => {
+  csvRows.forEach((row, index) => {
     const imageName = row.name;
     
     // Process path: remove "assets_img\" prefix and filename
@@ -75,14 +75,18 @@ async function importLocalizationData(data) {
       }
     }
     
-    if (!images[imageName]) {
-      images[imageName] = {
+    // Create unique key: path + imageName to handle duplicate names in different folders
+    const uniqueKey = `${processedPath}/${imageName}`;
+    
+    if (!images[uniqueKey]) {
+      images[uniqueKey] = {
         textElements: [],
-        path: processedPath
+        path: processedPath,
+        displayName: imageName // Keep original name for display
       };
     }
     
-    images[imageName].textElements.push({
+    images[uniqueKey].textElements.push({
       original: row.extractText,
       vi: row.extractText, // For now, use same text
       en: row.extractText, // For now, use same text
@@ -126,7 +130,9 @@ async function importLocalizationData(data) {
       let maxWidth = 400;
       
       // Process images in this folder using ORIGINAL logic
-      for (const [imageName, imageData] of Object.entries(pathImages)) {
+      for (const [uniqueKey, imageData] of Object.entries(pathImages)) {
+        const imageName = imageData.displayName; // Use original name for display
+        
         if (groupByImage) {
           // Try to find matching image in Original Assets first to get dimensions
           const originalImage = originalImages[imageName] || 
@@ -139,7 +145,7 @@ async function importLocalizationData(data) {
           
           // Create frame exactly same size as image
           const imageFrame = figma.createFrame();
-          imageFrame.name = imageName.split('.')[0]; // No suffix
+          imageFrame.name = imageName.split('.')[0]; // Use display name
           imageFrame.x = 20;
           imageFrame.y = folderY;
           imageFrame.resize(imageWidth, imageHeight); // Exact image size
@@ -256,7 +262,9 @@ async function importLocalizationData(data) {
     let currentY = 50;
     
     // Process each image
-    for (const [imageName, imageData] of Object.entries(images)) {
+    for (const [uniqueKey, imageData] of Object.entries(images)) {
+      const imageName = imageData.displayName; // Use original name for display
+      
       if (groupByImage) {
         // Try to find matching image in Original Assets first to get dimensions
         const originalImage = originalImages[imageName] || 
@@ -269,7 +277,7 @@ async function importLocalizationData(data) {
         
         // Create frame exactly same size as image
         const imageFrame = figma.createFrame();
-        imageFrame.name = imageName.split('.')[0]; // No suffix
+        imageFrame.name = imageName.split('.')[0]; // Use display name
         imageFrame.x = 50;
         imageFrame.y = currentY;
         imageFrame.resize(imageWidth, imageHeight); // Exact image size
