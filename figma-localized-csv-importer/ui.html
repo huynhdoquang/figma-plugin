@@ -193,22 +193,40 @@
       color: #d32f2f;
       border: 1px solid #ffcdd2;
     }
+    
+    .input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    
+    .input-label {
+      font-weight: 500;
+      color: #1a1a1a;
+    }
+    
+    .text-input {
+      padding: 8px 12px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 12px;
+    }
   </style>
 </head>
 <body>
   <div class="header">
-    <div class="title">🎮 Game Localization Importer</div>
-    <div class="subtitle">Import JSON localization data into Figma</div>
+    <div class="title">📊 Game Localization Importer</div>
+    <div class="subtitle">Import CSV localization data into Figma with folder structure</div>
   </div>
   
   <div class="section">
-    <div class="section-title">📁 Upload JSON Data</div>
+    <div class="section-title">📁 Upload CSV Data</div>
     <div class="upload-area" id="uploadArea">
-      <div class="upload-text">Drop JSON file here or click to browse</div>
+      <div class="upload-text">Drop CSV file here or click to browse</div>
       <button class="upload-button" onclick="document.getElementById('fileInput').click()">
-        Choose File
+        Choose CSV File
       </button>
-      <input type="file" id="fileInput" class="file-input" accept="application/json,.json" />
+      <input type="file" id="fileInput" class="file-input" accept=".csv,text/csv" />
     </div>
     <div id="fileInfo" style="margin-top: 8px; font-size: 11px; color: #666;"></div>
   </div>
@@ -217,33 +235,37 @@
     <div class="section-title">⚙️ Import Options</div>
     <div class="options">
       <div class="option-group">
-        <div class="option-label">Language to Import:</div>
-        <div class="radio-group">
-          <div class="radio-item">
-            <input type="radio" id="langVi" name="language" value="vi" checked>
-            <label for="langVi">Vietnamese</label>
-          </div>
-          <div class="radio-item">
-            <input type="radio" id="langEn" name="language" value="en">
-            <label for="langEn">English</label>
-          </div>
-          <div class="radio-item">
-            <input type="radio" id="langOriginal" name="language" value="original">
-            <label for="langOriginal">Original (Chinese)</label>
-          </div>
-        </div>
-      </div>
-      
-      <div class="option-group">
         <div class="checkbox-item">
           <input type="checkbox" id="createBoundingBoxes" checked>
           <label for="createBoundingBoxes">Create bounding box guides</label>
         </div>
         <div class="checkbox-item">
+          <input type="checkbox" id="maintainFolderStructure" checked>
+          <label for="maintainFolderStructure">Maintain folder structure from path</label>
+        </div>
+        <div class="checkbox-item">
           <input type="checkbox" id="groupByImage" checked>
-          <label for="groupByImage">Group elements by image</label>
+          <label for="groupByImage">Group text elements by image</label>
         </div>
       </div>
+      
+        <div class="option-group">
+          <div class="option-label">Language to Import:</div>
+          <div class="radio-group">
+            <div class="radio-item">
+              <input type="radio" id="langVi" name="language" value="vi" checked>
+              <label for="langVi">Vietnamese</label>
+            </div>
+            <div class="radio-item">
+              <input type="radio" id="langEn" name="language" value="en">
+              <label for="langEn">English</label>
+            </div>
+            <div class="radio-item">
+              <input type="radio" id="langOriginal" name="language" value="original">
+              <label for="langOriginal">Original Text</label>
+            </div>
+          </div>
+        </div>
     </div>
   </div>
   
@@ -264,7 +286,8 @@
   <div id="status"></div>
   
   <script>
-    let jsonData = null;
+    let csvData = null;
+    let parsedData = null;
     
     // File upload handling
     const uploadArea = document.getElementById('uploadArea');
@@ -307,8 +330,8 @@
     });
     
     function handleFile(file) {
-      if (!file.name.endsWith('.json')) {
-        showStatus('Please select a JSON file', 'error');
+      if (!file.name.toLowerCase().endsWith('.csv')) {
+        showStatus('Please select a CSV file', 'error');
         return;
       }
       
@@ -317,26 +340,86 @@
       const reader = new FileReader();
       reader.onload = (e) => {
         try {
-          jsonData = JSON.parse(e.target.result);
-          showPreview(jsonData);
+          csvData = e.target.result;
+          parsedData = parseCSV(csvData);
+          showPreview(parsedData);
           optionsSection.style.display = 'block';
           previewSection.style.display = 'block';
           importButton.disabled = false;
           createComponentsButton.disabled = false;
-          showStatus('JSON loaded successfully!', 'success');
+          showStatus('CSV loaded successfully!', 'success');
         } catch (error) {
-          showStatus('Invalid JSON file: ' + error.message, 'error');
+          showStatus('Invalid CSV file: ' + error.message, 'error');
         }
       };
       reader.readAsText(file);
     }
     
+    function parseCSV(csvText) {
+      const lines = csvText.trim().split('\n');
+      const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+      
+      const rows = [];
+      for (let i = 1; i < lines.length; i++) {
+        const values = parseCSVLine(lines[i]);
+        const row = {};
+        headers.forEach((header, index) => {
+          row[header] = values[index] || '';
+        });
+        rows.push(row);
+      }
+      
+      return { headers, rows };
+    }
+    
+    function parseCSVLine(line) {
+      const values = [];
+      let current = '';
+      let inQuotes = false;
+      
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        
+        if (char === '"') {
+          inQuotes = !inQuotes;
+        } else if (char === ',' && !inQuotes) {
+          values.push(current.trim());
+          current = '';
+        } else {
+          current += char;
+        }
+      }
+      
+      values.push(current.trim());
+      return values;
+    }
+    
     function showPreview(data) {
+      // Convert CSV to JSON-like structure for preview
+      const imageGroups = {};
+      data.rows.forEach(row => {
+        const imageName = row.name;
+        if (!imageGroups[imageName]) {
+          imageGroups[imageName] = [];
+        }
+        imageGroups[imageName].push({
+          original: row.extractText,
+          vi: row.extractText, // Same as original for now
+          en: row.extractText, // Same as original for now
+          x: parseInt(row.x),
+          y: parseInt(row.y),
+          width: parseInt(row.width),
+          height: parseInt(row.height),
+          direction: row.direction
+        });
+      });
+      
       const preview = {
-        totalImages: Object.keys(data.images).length,
-        totalElements: Object.values(data.images).reduce((sum, img) => sum + img.textElements.length, 0),
-        firstImage: Object.keys(data.images)[0],
-        sampleElement: Object.values(data.images)[0]?.textElements[0]
+        totalImages: Object.keys(imageGroups).length,
+        totalElements: data.rows.length,
+        uniquePaths: [...new Set(data.rows.map(r => r.path))],
+        firstImage: Object.keys(imageGroups)[0],
+        sampleElement: Object.values(imageGroups)[0]?.[0]
       };
       
       dataPreview.textContent = JSON.stringify(preview, null, 2);
@@ -350,20 +433,22 @@
     
     // Button handlers
     importButton.addEventListener('click', () => {
-      if (!jsonData) return;
+      if (!parsedData) return;
       
       const selectedLanguage = document.querySelector('input[name="language"]:checked').value;
       const createBoundingBoxes = document.getElementById('createBoundingBoxes').checked;
+      const maintainFolderStructure = document.getElementById('maintainFolderStructure').checked;
       const groupByImage = document.getElementById('groupByImage').checked;
       
       parent.postMessage({
         pluginMessage: {
           type: 'import-localization',
           data: {
-            images: jsonData.images,
+            csvRows: parsedData.rows,
             selectedLanguage,
             createBoundingBoxes,
-            groupByImage
+            groupByImage,
+            maintainFolderStructure
           }
         }
       }, '*');
@@ -372,13 +457,13 @@
     });
     
     createComponentsButton.addEventListener('click', () => {
-      if (!jsonData) return;
+      if (!parsedData) return;
       
       parent.postMessage({
         pluginMessage: {
           type: 'create-components',
           data: {
-            images: jsonData.images,
+            csvRows: parsedData.rows,
             componentTypes: ['button', 'label', 'title']
           }
         }
