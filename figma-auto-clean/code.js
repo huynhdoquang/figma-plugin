@@ -188,8 +188,10 @@ async function cleanImage(options) {
     
     if (imageNode.parent) {
       imageNode.parent.appendChild(cleanedNode);
+      imageNode.parent.insertChild(1, cleanedNode);
     } else {
       figma.currentPage.appendChild(cleanedNode);
+      figma.currentPage.insertChild(1, cleanedNode);
     }
     
     figma.currentPage.selection = [cleanedNode];
