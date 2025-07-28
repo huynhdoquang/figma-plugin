@@ -88,8 +88,8 @@ async function importLocalizationData(data) {
     
     images[uniqueKey].textElements.push({
       original: row.extractText,
-      vi: row.extractText, // For now, use same text
-      en: row.extractText, // For now, use same text
+      vi: row.vi,
+      en: row.en,
       x: parseInt(row.x) || 0,
       y: parseInt(row.y) || 0,
       width: parseInt(row.width) || 100,
@@ -191,10 +191,10 @@ async function importLocalizationData(data) {
             // Style based on direction
             if (textEl.direction === 'vertical') {
               viTextNode.textAlignVertical = 'CENTER';
-              viTextNode.fills = [];
+              viTextNode.fills = [{ type: 'SOLID', color: { r: 0, g: 0.7, b: 0 } }];
             } else {
               viTextNode.textAlignHorizontal = 'CENTER';
-              viTextNode.fills = [];
+              viTextNode.fills = [{ type: 'SOLID', color: { r: 0, g: 0, b: 0.8 } }];
             }
             
             // English text - SAME position as Vietnamese
